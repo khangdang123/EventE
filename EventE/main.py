@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from feature import insert_event
+from feature import insert_event, delete
 
 def create_database_from_schema (db_name, schema_file):
     conn = sqlite3.connect(db_name)
@@ -22,5 +22,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-    insert_event(101, "Hackathon", "2024-12-01")
+    insert_event()
+    # delete()
 
