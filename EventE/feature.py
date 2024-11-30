@@ -60,8 +60,6 @@ def insert_event():
         finally:
             connection.close()
 
-
-
 def delete():
     connection = get_database_connection()
 
@@ -97,3 +95,51 @@ def delete():
 
     finally:
         connection.close()
+
+def retrieve_data():
+    connection = get_database_connection()
+
+    if connection:
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            table_names = [table[0] for table in tables]
+            print(f"Available tables: {', '.join(table_names)}")
+
+            selected_tables = input("Enter table names to query (comma-separated): ").upper().split(',')
+
+            for table in selected_tables:
+                table = table.strip()
+                if table not in table_names:
+                    print(f"Table '{table}' does not exist.")
+                    continue
+
+                cursor.execute(f"PRAGMA table_info({table})")
+                columns_info = cursor.fetchall()
+                columns = [col[1] for col in columns_info]
+
+                print(f"Columns in {table}: {', '.join(columns)}")
+                selected_columns = input(
+                    f"Enter column names to retrieve from {table} (comma-separated, or press Enter for all): "
+                ).strip()
+                if not selected_columns:
+                    selected_columns = "*"
+                else: 
+                    selected_columns = ", ".join(col.strip() for col in selected_columns.split(','))
+                
+                try: 
+                    sql = f"SELECT {selected_columns} FROM {table}"
+                    cursor.execute(sql)
+                    rows = cursor.fetchall()
+                    print(f"Data from {table}:")
+                    for row in rows:
+                        print(row)
+                except sqlite3.Error as e:
+                    print(f"Error retrieving data from {table}: {e}")
+
+        except sqlite3.Error as e:
+            print(f"Error retrieving data: {e}")
+
+        finally:
+            connection.close()
