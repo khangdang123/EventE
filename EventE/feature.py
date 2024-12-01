@@ -5,7 +5,7 @@ def get_database_connection():
     connection.execute("PRAGMA foreign_keys = ON;")
     return connection
 
-def insert_event():
+def insert():
     connection = get_database_connection()
 
     if connection:
@@ -19,22 +19,19 @@ def insert_event():
                 print(f"Table '{table_name}' does not exist.")
                 return
             
-            # Extract non-primary key columns
             non_primary_columns = [col for col in columns_info if col[5] != 1]
             columns = [col[1] for col in non_primary_columns]
             print(f"Columns available for insertion in {table_name}: {', '.join(columns)}")
 
-            # Determine if any column is a foreign key
             cursor.execute(f"PRAGMA foreign_key_list({table_name})")
             foreign_keys = cursor.fetchall()
-            foreign_key_mapping = {fk[3]: fk[2] for fk in foreign_keys}  # Maps column name to referenced table
+            foreign_key_mapping = {fk[3]: fk[2] for fk in foreign_keys}  
 
             values = []
             for column in columns:
                 if column in foreign_key_mapping:
                     referenced_table = foreign_key_mapping[column]
                     print(f"{column} is a foreign key referencing {referenced_table}.")
-                    # Fetch existing keys in the referenced table for the user to choose from
                     cursor.execute(f"SELECT rowid, * FROM {referenced_table}")
                     rows = cursor.fetchall()
                     if rows:
@@ -96,18 +93,49 @@ def delete():
     finally:
         connection.close()
 
-def retrieve_data():
+def retrieve():
     connection = get_database_connection()
 
     if connection:
         try:
             cursor = connection.cursor()
+
+            cursor.execute("SELECT EVENT_ID, EVENT_NAME FROM EVENT")
+            events = cursor.fetchall()
+
+            if not events:
+                print("No events found in the database.")
+                return
+
+            print("Available events:")
+            for event_id, event_name in events:
+                print(f"{event_id}: {event_name}")
+
+            selected_event_name = input("Enter the event name to retrieve information for: ").strip()
+            cursor.execute(
+                "SELECT EVENT_ID FROM EVENT WHERE EVENT_NAME = ?",
+                (selected_event_name,)
+            )
+            result = cursor.fetchone()
+
+            if not result:
+                print(f"No event found with the name '{selected_event_name}'.")
+                return
+
+            event_id_filter = result[0]
+
+            print(f"Retrieving data for event '{selected_event_name}'.")
+
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = cursor.fetchall()
             table_names = [table[0] for table in tables]
-            print(f"Available tables: {', '.join(table_names)}")
 
-            selected_tables = input("Enter table names to query (comma-separated): ").upper().split(',')
+            selected_tables = input(
+                "Enter table names to query: "
+            ).upper().split(',')
+
+            if not selected_tables or selected_tables == ['']:
+                selected_tables = table_names
 
             for table in selected_tables:
                 table = table.strip()
@@ -119,22 +147,32 @@ def retrieve_data():
                 columns_info = cursor.fetchall()
                 columns = [col[1] for col in columns_info]
 
+                if "EVENT_ID" not in columns:
+                    print(f"Table '{table}' does not have an EVENT_ID column; skipping.")
+                    continue
+
                 print(f"Columns in {table}: {', '.join(columns)}")
                 selected_columns = input(
                     f"Enter column names to retrieve from {table} (comma-separated, or press Enter for all): "
                 ).strip()
+
                 if not selected_columns:
                     selected_columns = "*"
-                else: 
+                else:
                     selected_columns = ", ".join(col.strip() for col in selected_columns.split(','))
-                
-                try: 
-                    sql = f"SELECT {selected_columns} FROM {table}"
-                    cursor.execute(sql)
+
+                try:
+                    sql = f"SELECT {selected_columns} FROM {table} WHERE EVENT_ID = ?"
+                    cursor.execute(sql, (event_id_filter,))
                     rows = cursor.fetchall()
-                    print(f"Data from {table}:")
-                    for row in rows:
-                        print(row)
+
+                    if rows:
+                        print(f"Data from {table}:")
+                        for row in rows:
+                            print(row)
+                    else:
+                        print(f"No data found in {table} for event '{selected_event_name}'.")
+
                 except sqlite3.Error as e:
                     print(f"Error retrieving data from {table}: {e}")
 
@@ -143,3 +181,102 @@ def retrieve_data():
 
         finally:
             connection.close()
+
+def attendee_role():
+    while True:
+        print("Welcome Attendee")
+        print("1. Register Event")
+        print("2. View Event Schedule")
+        print("3. View weather conditions")
+        print("4. Exit to main menu")
+        choice = input("Enter your option: ")
+
+        connection = get_database_connection()
+        try:
+            cursor = connection.cursor()
+
+            if choice == "1":
+                print("\nEnter your information....")
+            if choice == "2":
+                cursor.execute("""
+                    SELECT S.SCHEDULE_ID, E.EVENT_NAME, S.START_DATE, S.END_DATE
+                    FROM SCHEDULE S
+                    JOIN EVENT E ON S.EVENT_ID = E.EVENT_ID
+                    ORDER BY S.START_DATE;   
+                """)
+                rows = cursor.fetchall()
+                if rows:
+                    print(f"\n{'Schedule ID': <15} {'Event': 20} {'Start Date':<15} {'End Date':<15}")
+                    print("-" * 70)
+                    for row in rows:
+                        print(f"{row[0]:<15} {row[1]:<20} {row[2]:<15} {row[3]:<15}")
+                else:
+                    print("No schedule data found.")
+            elif choice == "3":
+                print("\nRetrieving weather condition...")
+                cursor.execute("SELECT * FROM WEATHER_CONDITION;")
+                rows = cursor.fetchall()
+                if rows:
+                    print(f"\n{'Condition ID': <15} {row[1]:30}")
+                    print("-" * 50)
+                    for row in rows:
+                        print(f"{rows[0]:<15} {row[1]:<30}")
+                else:
+                    print("No weather condition data found.")
+            elif choice == '4':
+                break
+            else:
+                print("Invalid choice. Please try again.")
+        finally:
+            connection.close()
+
+def staff_role():
+    while True:
+        print("STAFF Information")
+        print("1. Insert/Delete Database")
+        print("2. Manage attendees")
+        print("3. View weather conditions")
+        print("4. View data based on Event")
+        print("10. Exit to main")
+        choice = input("Enter your option: ")
+    
+        connection = get_database_connection()
+        try:
+            cursor = connection.cursor()
+
+            if choice == "1":
+                print("Modify Database")
+                print("1. Insert information")
+                print("2. Delete row information")
+                print("3. Exit to main")
+                choice = input("Enter your option: ")
+
+                if choice == "1":
+                    insert()
+                if choice == "2":
+                    delete()
+                if choice == "3":
+                    break
+                else:
+                    print("Invalid choice. Please try again.")
+            if choice == "2":
+                attendee_role()
+            if choice == "3":
+                print("\nRetrieving weather condition...")
+                cursor.execute("SELECT * FROM WEATHER_CONDITION;")
+                rows = cursor.fetchall()
+                if rows:
+                    print(f"\n{'Condition ID': <15} {row[1]:30}")
+                    print("-" * 50)
+                    for row in rows:
+                        print(f"{rows[0]:<15} {row[1]:s<30}")
+                else:
+                    print("No weather condition data found.")
+            if choice == "4":
+                insert()
+            elif choice == "10":
+                break
+            else:
+                print("Invalid choice. Please try again.")
+        finally:
+            connection.close()            

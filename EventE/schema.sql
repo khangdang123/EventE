@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS ATTENDEE (
 CREATE TABLE IF NOT EXISTS STAFF (
     STAFF_ID INTEGER PRIMARY KEY AUTOINCREMENT,
     NAME VARCHAR(100) NOT NULL,
-    ROLE VARCHAR(100) CHECK (ROLE IN ('Coordinator', 'Worker', 'Supervisor', 'Manager', 'Security', 'Volunteer')) NOT NULL,
+    ROLE VARCHAR(100) NOT NULL,
     EVENT_ID INTEGER NOT NULL,
     FOREIGN KEY (EVENT_ID) REFERENCES EVENT(EVENT_ID)
 );
@@ -66,3 +66,30 @@ CREATE TABLE IF NOT EXISTS WEATHER_CONDITION (
     EVENT_ID INTEGER NOT NULL,
     FOREIGN KEY (EVENT_ID) REFERENCES EVENT(EVENT_ID)
 );
+
+-- Indexes for EVENT_ID foreign keys
+CREATE INDEX idx_attendee_event_id ON ATTENDEE (EVENT_ID);
+CREATE INDEX idx_staff_event_id ON STAFF (EVENT_ID);
+CREATE INDEX idx_schedule_event_id ON SCHEDULE (EVENT_ID);
+CREATE INDEX idx_task_event_id ON TASK (EVENT_ID);
+CREATE INDEX idx_supplies_event_id ON SUPPLIES (EVENT_ID);
+CREATE INDEX idx_weather_condition_event_id ON WEATHER_CONDITION (EVENT_ID);
+
+-- Index for VENDOR_ID in SUPPLIES
+CREATE INDEX idx_supplies_vendor_id ON SUPPLIES (VENDOR_ID);
+
+-- Index for frequently queried column in EVENT
+CREATE INDEX idx_event_name ON EVENT (EVENT_NAME);
+
+-- Index for STAFF roles
+CREATE INDEX idx_staff_role ON STAFF (ROLE);
+
+-- Index for VENUE capacity (useful for filtering)
+CREATE INDEX idx_venue_capacity ON VENUE (CAPACITY);
+
+-- Index for weather conditions (used for sorting or range queries)
+CREATE INDEX idx_weather_temperature ON WEATHER_CONDITION (TEMPERATURE);
+CREATE INDEX idx_weather_humidity ON WEATHER_CONDITION (HUMIDITY);
+
+-- Index for VENDOR availability
+CREATE INDEX idx_vendor_availability ON VENDOR (AVAILABILITY);
