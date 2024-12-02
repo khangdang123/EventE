@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from feature import insert, delete, retrieve,attendee_role,staff_role
+from feature import insert, delete, retrieve,attendee_role,staff_role,register
 
 def create_database_from_schema (db_name, schema_file):
     conn = sqlite3.connect(db_name)
@@ -41,5 +41,5 @@ def main_menu():
 if __name__ == "__main__":
     main()
 
-    retrieve()
+    main_menu()
 

@@ -182,6 +182,49 @@ def retrieve():
         finally:
             connection.close()
 
+def register():
+    connection = get_database_connection()
+    if connection:
+        try: 
+            cursor = connection.cursor()
+
+            cursor.execute("SELECT EVENT_NAME FROM EVENT")
+            events = cursor.fetchall()
+            if not events:
+                print("No events available for registration.")
+                return
+                    
+            print("Available Events:")
+            print(f"{'Event Name':<20}")
+            print("-" * 30)
+            for event in events:
+                print(f"{event[0]:<20}")
+
+            event_name = input("Enter the Event you want to register for: ").strip()
+
+            cursor.execute("SELECT EVENT_ID FROM EVENT WHERE EVENT_NAME = ?", (event_name,))
+            event = cursor.fetchone()
+
+            if not event:
+                print(f"No event found with the name '{event_name}'. Please try again.")
+                return
+                    
+            event_id = event[0]
+
+            name = input("Enter your name: ")
+            phone_number = input("Enter your phone number: ")
+
+            cursor.execute(
+                "INSERT INTO ATTENDEE (NAME, PHONE_NUMBER, EVENT_ID) VALUES (?,?,?)",
+                (name, phone_number, event_id)
+            )
+            connection.commit()
+            print(f"Registration successful! You have been added as an attendee for '{event_name}'.")
+        except sqlite3.Error as e:
+            print(f"Error registering for event: {e}")
+        finally:
+            connection.close()
+
 def attendee_role():
     while True:
         print("Welcome Attendee")
@@ -197,6 +240,7 @@ def attendee_role():
 
             if choice == "1":
                 print("\nEnter your information....")
+                register()
             if choice == "2":
                 cursor.execute("""
                     SELECT S.SCHEDULE_ID, E.EVENT_NAME, S.START_DATE, S.END_DATE
@@ -225,8 +269,6 @@ def attendee_role():
                     print("No weather condition data found.")
             elif choice == '4':
                 break
-            else:
-                print("Invalid choice. Please try again.")
         finally:
             connection.close()
 
@@ -260,7 +302,37 @@ def staff_role():
                 else:
                     print("Invalid choice. Please try again.")
             if choice == "2":
-                attendee_role()
+                print("1. View Attendees")
+                print("2. Access Attendees Role")
+                print("3. Exit")
+                choice = input("Enter your option: ")
+
+                if choice == "1":
+                    try:
+                        cursor = connection.cursor()
+                        cursor.execute("""
+                            SELECT a.ATTENDEE_ID, a.NAME, a.PHONE_NUMBER, e.EVENT_NAME
+                            FROM ATTENDEE a
+                            JOIN EVENT e ON a.EVENT_ID = e.EVENT_ID
+                        """)
+                        attendees = cursor.fetchall()
+
+                        if not attendees:
+                            print("No attendees found.")
+                        else:
+                            print("Attendees:")
+                            print(f"{'ID':<10}{'Name':<20}{'Phone':<20}{'Event':<20}")
+                            print("-" * 70)
+                            for attendee in attendees:
+                                print(f"{attendee[0]:<10}{attendee[1]:<20}{attendee[2]:<20}{attendee[3]:<20}")
+                    except sqlite3.Error as e:
+                        print(f"Error retrieving attendees: {e}")
+                    finally:
+                        connection.close()
+                if choice == "2":
+                    attendee_role()
+                if choice == "3":
+                    break
             if choice == "3":
                 print("\nRetrieving weather condition...")
                 cursor.execute("SELECT * FROM WEATHER_CONDITION;")
@@ -273,10 +345,8 @@ def staff_role():
                 else:
                     print("No weather condition data found.")
             if choice == "4":
-                insert()
+                retrieve()
             elif choice == "10":
                 break
-            else:
-                print("Invalid choice. Please try again.")
         finally:
             connection.close()            
