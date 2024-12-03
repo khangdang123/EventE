@@ -1,6 +1,7 @@
 import sqlite3
 import os
-from feature import insert, delete, retrieve,attendee_role,staff_role,register
+import math
+from feature import insert, delete, retrieve,attendee_role,staff_role,register,measure_time
 
 def create_database_from_schema (db_name, schema_file):
     conn = sqlite3.connect(db_name)
@@ -18,7 +19,7 @@ def main():
     schema_file = 'schema.sql'
 
     create_database_from_schema(db_name, schema_file)
-                
+
 def main_menu():
     while True:
         print("ACCESS DATABASE")

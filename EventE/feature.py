@@ -1,4 +1,14 @@
 import sqlite3
+import time 
+
+def measure_time(func):
+    def wrapper (*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Execution time of {func.__name__}: {end_time - start_time:.4f} seconds")
+        return result
+    return wrapper
 
 def get_database_connection():
     connection = sqlite3.connect("event_management.db")
@@ -57,35 +67,50 @@ def insert():
         finally:
             connection.close()
 
+@measure_time
 def delete():
     connection = get_database_connection()
 
     try:
-        table_name = input("Enter the table name to delete from (e.g., EVENT, ATTENDEE, STAFF): ").upper()
-        column_name = input(f"Enter the column name to identify the row (e.g., EVENT_ID, ATTENDEE_ID): ").upper()
-        row_id = input(f"Enter the value of {column_name} to delete: ")
-
         cursor = connection.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON;")
+        
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = [table[0].upper() for table in cursor.fetchall()]
+
+        print("Available tables: " + ", ".join(tables))
+        table_name = input("Enter the table name to delete from: ").upper()
+
+        if table_name not in tables:
+            print(f"Table '{table_name}' does not exist.")
+            return
+
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = [col[1].upper() for col in cursor.fetchall()]
+        print(f"Columns in {table_name}: {', '.join(columns)}")
 
+        column_name = input("Enter the column name to identify the row: ").upper()
         if column_name not in columns:
             print(f"Column '{column_name}' does not exist in table '{table_name}'.")
             return
-        
-        cursor.execute (f"SELECT * FROM {table_name} WHERE {column_name} = ?", (row_id,))
+
+        row_id = input(f"Enter the value of {column_name} to delete: ").strip()
+
+        cursor.execute(f"SELECT * FROM {table_name} WHERE {column_name} = ?", (row_id,))
         row = cursor.fetchone()
 
-        if row:
-            confirm = input(f"Are you sure you want to delete this row from '{table_name}'? (yes/no): ")
-            if confirm.lower() == "yes":
-                cursor.execute(f"DELETE FROM {table_name} WHERE {column_name} = ?", (row_id,))
-                connection.commit()
-                print("Row deleted successfully.")
-            else:
-                print("Deletion canceled.")
-        else:
+        if not row:
             print(f"No matching row found in table '{table_name}' with {column_name} = {row_id}.")
+            return
+
+        print(f"Row to be deleted: {row}")
+        confirm = input(f"Are you sure you want to delete this row? (yes/no): ").lower()
+        if confirm == "yes":
+            cursor.execute(f"DELETE FROM {table_name} WHERE {column_name} = ?", (row_id,))
+            connection.commit()
+            print("Row deleted successfully.")
+        else:
+            print("Deletion canceled.")
 
     except sqlite3.Error as e:
         print(f"Error deleting row: {e}")
@@ -93,6 +118,7 @@ def delete():
     finally:
         connection.close()
 
+@measure_time
 def retrieve():
     connection = get_database_connection()
 
@@ -182,6 +208,7 @@ def retrieve():
         finally:
             connection.close()
 
+@measure_time
 def register():
     connection = get_database_connection()
     if connection:
@@ -225,6 +252,31 @@ def register():
         finally:
             connection.close()
 
+@measure_time
+def view_attendees():
+    connection = get_database_connection()
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT a.ATTENDEE_ID, a.NAME, a.PHONE_NUMBER, e.EVENT_NAME
+            FROM ATTENDEE a
+            JOIN EVENT e ON a.EVENT_ID = e.EVENT_ID
+            """)
+        attendees = cursor.fetchall()
+
+        if not attendees:
+            print("No attendees found.")
+        else:
+            print("Attendees:")
+            print(f"{'ID':<10}{'Name':<20}{'Phone':<20}{'Event':<20}")
+            print("-" * 70)
+            for attendee in attendees:
+                print(f"{attendee[0]:<10}{attendee[1]:<20}{attendee[2]:<20}{attendee[3]:<20}")
+    except sqlite3.Error as e:
+            print(f"Error retrieving attendees: {e}")
+    finally:
+        connection.close()
 def attendee_role():
     while True:
         print("Welcome Attendee")
@@ -275,10 +327,10 @@ def attendee_role():
 def staff_role():
     while True:
         print("STAFF Information")
-        print("1. Insert/Delete Database")
+        print("1. Insert/Delete information")
         print("2. Manage attendees")
         print("3. View weather conditions")
-        print("4. View data based on Event")
+        print("4. View data based on Event Selected")
         print("10. Exit to main")
         choice = input("Enter your option: ")
     
@@ -291,16 +343,15 @@ def staff_role():
                 print("1. Insert information")
                 print("2. Delete row information")
                 print("3. Exit to main")
-                choice = input("Enter your option: ")
+                choice1 = input("Enter your option: ")
 
-                if choice == "1":
+                if choice1 == "1":
                     insert()
-                if choice == "2":
+                if choice1 == "2":
                     delete()
-                if choice == "3":
+                if choice1 == "3":
                     break
-                else:
-                    print("Invalid choice. Please try again.")
+
             if choice == "2":
                 print("1. View Attendees")
                 print("2. Access Attendees Role")
@@ -308,27 +359,7 @@ def staff_role():
                 choice = input("Enter your option: ")
 
                 if choice == "1":
-                    try:
-                        cursor = connection.cursor()
-                        cursor.execute("""
-                            SELECT a.ATTENDEE_ID, a.NAME, a.PHONE_NUMBER, e.EVENT_NAME
-                            FROM ATTENDEE a
-                            JOIN EVENT e ON a.EVENT_ID = e.EVENT_ID
-                        """)
-                        attendees = cursor.fetchall()
-
-                        if not attendees:
-                            print("No attendees found.")
-                        else:
-                            print("Attendees:")
-                            print(f"{'ID':<10}{'Name':<20}{'Phone':<20}{'Event':<20}")
-                            print("-" * 70)
-                            for attendee in attendees:
-                                print(f"{attendee[0]:<10}{attendee[1]:<20}{attendee[2]:<20}{attendee[3]:<20}")
-                    except sqlite3.Error as e:
-                        print(f"Error retrieving attendees: {e}")
-                    finally:
-                        connection.close()
+                    view_attendees()
                 if choice == "2":
                     attendee_role()
                 if choice == "3":
