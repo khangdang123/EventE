@@ -1,10 +1,11 @@
 import sqlite3
 import time 
+from datetime import datetime
 
 def measure_time(func):
     def wrapper (*args, **kwargs):
         start_time = time.time()
-        result = func(*args, **kwargs)
+        result = func(*ags, **kwargs)
         end_time = time.time()
         print(f"Execution time of {func.__name__}: {end_time - start_time:.4f} seconds")
         return result
@@ -326,58 +327,46 @@ def attendee_role():
         finally:
             connection.close()
 
+
 def view_weather_condition():
-    connection = get_database_connection()
-
-    try:
-        cursor = connection.cursor() 
-
-        cursor.execute("""
-            SELECT E.EVENT_NAME, WC.TEMPERATURE, WC.WIND_SPEED
-            FROM WEATHER_CONDITION WC
-            JOIN EVENT E ON WC.EVENT_ID = E.EVENT_ID
-            ORDER BY E.EVENT_NAME;
-        """)
-        
-        rows = cursor.fetchall()
-
-        if rows:
-            print(f"\n{'Weather Condition': <20} {'Temperature': <20} {'Wind_speed': <15}")
-            print("-" * 30)
-            for row in rows:
-                print(f"{row[0]:<20} {row[1]:<20} {row[2]:<15}")
-        else:
-            print("No weather conditions data found.")
-
-    except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
-    finally:
-        connection.close()
-
-def get_staff_for_events():
     connection = get_database_connection()
 
     try:
         cursor = connection.cursor()
 
         cursor.execute("""
-            SELECT E.EVENT_NAME, 
-                   ST.NAME AS STAFF_NAME, 
-                   ST.ROLE
-            FROM STAFF ST
-            JOIN EVENT E ON ST.EVENT_ID = E.EVENT_ID
-            ORDER BY E.EVENT_NAME, ST.ROLE;
+            SELECT E.EVENT_NAME, E.EVENT_DATE, WC.TEMPERATURE, WC.WIND_SPEED
+            FROM WEATHER_CONDITION WC
+            JOIN EVENT E ON WC.EVENT_ID = E.EVENT_ID
+            ORDER BY E.EVENT_NAME;
         """)
 
-        staff_data = cursor.fetchall()
+        rows = cursor.fetchall()
 
-        for staff in staff_data:
-            print(f"Event: {staff[0]}, Staff: {staff[1]}, Role: {staff[2]}")
+        if rows:
+            # Increase the width for event name
+            print(f"\n{'Event Name': <40} {'Event Day': <15} {'Weather Condition': <20} {'Temperature': <20} {'Wind Speed (km/h)': <20}")
+            print("-" * 120)  # Adjust separator length
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+            for row in rows:
+                event_name, event_date, temperature, wind_speed = row
+
+                # Adjust date format based on what is returned (MM/DD/YYYY format)
+                try:
+                    event_day = datetime.strptime(event_date, '%m/%d/%Y').strftime('%A')  # Correct date format
+                except ValueError:
+                    event_day = "Invalid Date"
+
+                # Print the event information with increased space for the name
+                print(f"{event_name:<40} {event_day:<15} {temperature:<20} {wind_speed:<20}")
+        else:
+            print("No weather conditions data found.")
+
+    except sqlite3.Error as e:
+        print(f"An error occurred while fetching weather conditions: {e}")
     finally:
         connection.close()
+
 
 def get_supplies_for_events():
     connection = get_database_connection()
@@ -406,6 +395,128 @@ def get_supplies_for_events():
     finally:
         connection.close()
 
+def view_event_info(event_id):
+    # Connect to the database
+    connection = sqlite3.connect('event_management.db')
+    cursor = connection.cursor()
+    
+    # Retrieve event information, including attendees, weather, staff roles, vendors, and supplies
+    print(f"Event Information for Event ID: {event_id}\n")
+    
+    # Get event details
+    cursor.execute("""
+        SELECT EVENT_NAME, EVENT_DATE FROM EVENT WHERE EVENT_ID = ?
+    """, (event_id,))
+    event_info = cursor.fetchone()
+    if event_info:
+        print(f"Event Name: {event_info[0]}")
+        print(f"Event Date: {event_info[1]}")
+    else:
+        print("Event not found.\n")
+        connection.close()
+        return
+    
+    # Get attendees for the event
+    print("\nAttendees:")
+    cursor.execute("""
+        SELECT NAME, PHONE_NUMBER FROM ATTENDEE WHERE EVENT_ID = ?
+    """, (event_id,))
+    attendees = cursor.fetchall()
+    if attendees:
+        for attendee in attendees:
+            print(f"Name: {attendee[0]}, Phone: {attendee[1]}")
+    else:
+        print("No attendees found.")
+    
+    # Get weather conditions for the event
+    print("\nWeather Conditions:")
+    cursor.execute("""
+        SELECT TEMPERATURE, WIND_SPEED FROM WEATHER_CONDITION WHERE EVENT_ID = ?
+    """, (event_id,))
+    weather = cursor.fetchall()
+    if weather:
+        for record in weather:
+            print(f"Temperature: {record[0]}°C, Wind Speed: {record[1]} km/h")
+    else:
+        print("No weather data found.")
+    
+    # Get staff and their roles for the event
+    print("\nStaff and Roles:")
+    cursor.execute("""
+        SELECT NAME, ROLE FROM STAFF WHERE EVENT_ID = ?
+    """, (event_id,))
+    staff = cursor.fetchall()
+    if staff:
+        for member in staff:
+            print(f"Name: {member[0]}, Role: {member[1]}")
+    else:
+        print("No staff found.")
+    
+    # Get vendors and their supplies for the event
+    print("\nVendors and Supplies:")
+    cursor.execute("""
+        SELECT VENDOR.NAME, SUPPLIES.SUPPLY_NAME, SUPPLIES.QUANTITY
+        FROM VENDOR
+        JOIN SUPPLIES ON VENDOR.VENDOR_ID = SUPPLIES.VENDOR_ID
+        WHERE SUPPLIES.EVENT_ID = ?
+    """, (event_id,))
+    vendor_supplies = cursor.fetchall()
+    if vendor_supplies:
+        for vendor in vendor_supplies:
+            print(f"Vendor: {vendor[0]}, Supply: {vendor[1]}, Quantity: {vendor[2]}")
+    else:
+        print("No vendors or supplies found.")
+    
+    # Close the database connection
+    connection.close()
+
+def cancel_event():
+    connection = get_database_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        # Fetch all events
+        cursor.execute("SELECT EVENT_ID, EVENT_NAME FROM EVENT")
+        events = cursor.fetchall()
+
+        if not events:
+            print("No events found to cancel.")
+            return
+
+        print("Available events:")
+        for event_id, event_name in events:
+            print(f"{event_id}: {event_name}")
+
+        # Ask staff for the event name to cancel
+        event_name_to_cancel = input("Enter the name of the event to cancel: ").strip()
+
+        cursor.execute("SELECT EVENT_ID FROM EVENT WHERE EVENT_NAME = ?", (event_name_to_cancel,))
+        event = cursor.fetchone()
+
+        if not event:
+            print(f"No event found with the name '{event_name_to_cancel}'. Please try again.")
+            return
+
+        # Ask for confirmation before deleting the event
+        confirm = input(f"Are you sure you want to cancel the event '{event_name_to_cancel}'? (yes/no): ").lower()
+        if confirm == 'yes':
+            event_id_to_cancel = event[0]
+
+            # Deleting the event from the EVENT table
+            cursor.execute("DELETE FROM EVENT WHERE EVENT_ID = ?", (event_id_to_cancel,))
+            connection.commit()
+            print(f"The event '{event_name_to_cancel}' has been canceled successfully.")
+
+        else:
+            print("Event cancellation canceled.")
+
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+
+    finally:
+        connection.close()
+
 def staff_role():
     while True:
         print("STAFF Information")
@@ -416,9 +527,11 @@ def staff_role():
         print("5. View Event Schedule")
         print("6. Staff and Their Roles for Each Event")
         print("7. Find Events That Have Vendors and Their Supplies")
+        print("8. View event information")
+        print("9. Cancel Event")  # New option to cancel event
         print("10. Exit to main")
         choice = input("Enter your option: ")
-    
+
         connection = get_database_connection()
         try:
             cursor = connection.cursor()
@@ -459,7 +572,12 @@ def staff_role():
                 get_staff_for_events()
             if choice == "7":
                 get_supplies_for_events()
+            if choice == "8":
+                event_id = input("Enter Event ID to view information: ")
+                view_event_info(event_id)
+            if choice == "9":  
+                cancel_event()
             elif choice == "10":
                 break
         finally:
-            connection.close()            
+            connection.close()

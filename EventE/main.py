@@ -1,7 +1,7 @@
 import sqlite3
 import os
 import math
-from feature import insert, delete, retrieve,attendee_role,staff_role,register,measure_time,get_database_connection
+from feature import insert, delete, retrieve, attendee_role, staff_role, register, measure_time, get_database_connection
 
 def insert_manual():
     connection = get_database_connection()
@@ -11,9 +11,9 @@ def insert_manual():
         VALUES
             ('1', 'Charity Gala', '12/2/2024'),
             ('2', 'Health and Wellness Fair', '12/5/2024'),
-            ('3', 'Starup Expo', '12/8/2024'),
+            ('3', 'Startup Expo', '12/8/2024'),
             ('4', 'Career Fair', '12/6/2024');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO Attendee (attendee_id, name, phone_number, event_id)
@@ -26,7 +26,7 @@ def insert_manual():
             ('6', 'Brown', '102938465', '2'),
             ('7', 'Wilson', '233445567', '4'),
             ('8', 'Chris', '039478844', '3');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO STAFF (Staff_id, name, role, event_id)
@@ -37,7 +37,7 @@ def insert_manual():
             ('4', 'Jenny', 'Technical', '3'),
             ('5', 'Topher', 'Choopper', '4'),
             ('6', 'Choppy', 'Manager', '3');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO SCHEDULE (schedule_id, start_date, end_date, event_id)
@@ -46,7 +46,7 @@ def insert_manual():
             ('2', '12/5/2024', '12/5/2024', '2'),
             ('3', '12/8/2024', '12/8/2024', '3'),
             ('4', '12/6/2024', '12/6/2024', '4');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO TASK (task_id, name, event_id)
@@ -58,7 +58,7 @@ def insert_manual():
             ('5', 'Secure Vendors', '2'),
             ('6', 'Plan Event', '1'),
             ('7', 'Design Invitations', '3');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO VENUE (venue_id, venue_name, location, capacity)
@@ -67,7 +67,7 @@ def insert_manual():
             ('2', 'Starlight', 'New York', '200'),
             ('3', 'Maple', 'San Jose', '150'),
             ('4', 'Grand Horizon', 'San Francisco', '250');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO VENDOR (vendor_id, name, AVAILABILITY)
@@ -76,7 +76,7 @@ def insert_manual():
             ('2', 'Harmony Sound', 'Yes'),
             ('3', 'Bloom Floral', 'No'),
             ('4', 'Apex Supplies', 'Yes');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO SUPPLIES (supply_id, supply_name, quantity, vendor_id, event_id)
@@ -89,7 +89,7 @@ def insert_manual():
             ('6', 'Floral Walls', '5', '3', '3'),
             ('7', 'Fans', '5', '4', '4'),
             ('8', 'Tents', '2', '4', '4');
-        """)
+    """)
     
     cursor.execute("""
         INSERT OR IGNORE INTO WEATHER_CONDITION (dataset_id, temperature, wind_speed, event_id)
@@ -102,12 +102,12 @@ def insert_manual():
             ('6', '77.7', '20.2', '3'),
             ('7', '60.4', '24.1', '4'),
             ('8', '58.4', '22.7', '4');
-        """)
-
+    """)
+    
     connection.commit()
     connection.close()
 
-def create_database_from_schema (db_name, schema_file):
+def create_database_from_schema(db_name, schema_file):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
@@ -118,6 +118,81 @@ def create_database_from_schema (db_name, schema_file):
     conn.commit()
     conn.close()
 
+def view_event_info(event_id):
+    # Connect to the database
+    connection = sqlite3.connect('event_management.db')
+    cursor = connection.cursor()
+    
+    # Retrieve event information, including attendees, weather, staff roles, vendors, and supplies
+    print(f"Event Information for Event ID: {event_id}\n")
+    
+    # Get event details
+    cursor.execute("""
+        SELECT EVENT_NAME, EVENT_DATE FROM EVENT WHERE EVENT_ID = ?
+    """, (event_id,))
+    event_info = cursor.fetchone()
+    if event_info:
+        print(f"Event Name: {event_info[0]}")
+        print(f"Event Date: {event_info[1]}")
+    else:
+        print("Event not found.\n")
+        connection.close()
+        return
+    
+    # Get attendees for the event
+    print("\nAttendees:")
+    cursor.execute("""
+        SELECT NAME, PHONE_NUMBER FROM ATTENDEE WHERE EVENT_ID = ?
+    """, (event_id,))
+    attendees = cursor.fetchall()
+    if attendees:
+        for attendee in attendees:
+            print(f"Name: {attendee[0]}, Phone: {attendee[1]}")
+    else:
+        print("No attendees found.")
+    
+    # Get weather conditions for the event
+    print("\nWeather Conditions:")
+    cursor.execute("""
+        SELECT TEMPERATURE, WIND_SPEED FROM WEATHER_CONDITION WHERE EVENT_ID = ?
+    """, (event_id,))
+    weather = cursor.fetchall()
+    if weather:
+        for record in weather:
+            print(f"Temperature: {record[0]}°C, Wind Speed: {record[1]} km/h")
+    else:
+        print("No weather data found.")
+    
+    # Get staff and their roles for the event
+    print("\nStaff and Roles:")
+    cursor.execute("""
+        SELECT NAME, ROLE FROM STAFF WHERE EVENT_ID = ?
+    """, (event_id,))
+    staff = cursor.fetchall()
+    if staff:
+        for member in staff:
+            print(f"Name: {member[0]}, Role: {member[1]}")
+    else:
+        print("No staff found.")
+    
+    # Get vendors and their supplies for the event
+    print("\nVendors and Supplies:")
+    cursor.execute("""
+        SELECT VENDOR.NAME, SUPPLIES.SUPPLY_NAME, SUPPLIES.QUANTITY
+        FROM VENDOR
+        JOIN SUPPLIES ON VENDOR.VENDOR_ID = SUPPLIES.VENDOR_ID
+        WHERE SUPPLIES.EVENT_ID = ?
+    """, (event_id,))
+    vendor_supplies = cursor.fetchall()
+    if vendor_supplies:
+        for vendor in vendor_supplies:
+            print(f"Vendor: {vendor[0]}, Supply: {vendor[1]}, Quantity: {vendor[2]}")
+    else:
+        print("No vendors or supplies found.")
+    
+    # Close the database connection
+    connection.close()
+
 def main():
     db_name = 'event_management.db'
     schema_file = 'schema.sql'
@@ -126,25 +201,27 @@ def main():
 
 def main_menu():
     while True:
-        print("ACCESS DATABASE")
-        print("1. Attendee")
-        print("2. Staff")
+        # Display the main menu options
+        print("\nACCESS DATABASE")
+        print("1. Attendee Role")
+        print("2. Staff Role")
         print("3. Exit")
 
-        role_choice = input("Enter Your Choice (1-3): ")
+        # Prompt user to select a role or exit
+        role_choice = input("Enter your choice (1-3): ").strip()
 
+        # Handle the user's choice
         if role_choice == "1":
-            attendee_role()
+            attendee_role()  # Call the function for attendee role
         elif role_choice == "2":
-            staff_role()
+            staff_role()  # Call the function for staff role
         elif role_choice == "3":
-            print("Exiting the system.")
+            print("Exiting the system.")  # Exit the loop and end the program
             break
         else:
-            print("Invalid choice. Please try again.")
+            print("Invalid choice. Please enter a valid option (1-3).")  # Handle invalid input
+
             
 if __name__ == "__main__":
     main()
-    insert_manual()
-    main_menu()
-
+    main_menu()  
