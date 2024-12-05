@@ -67,7 +67,6 @@ def insert():
         finally:
             connection.close()
 
-@measure_time
 def delete():
     connection = get_database_connection()
 
@@ -118,7 +117,6 @@ def delete():
     finally:
         connection.close()
 
-@measure_time
 def retrieve():
     connection = get_database_connection()
 
@@ -208,7 +206,6 @@ def retrieve():
         finally:
             connection.close()
 
-@measure_time
 def register():
     connection = get_database_connection()
     if connection:
@@ -252,7 +249,33 @@ def register():
         finally:
             connection.close()
 
-@measure_time
+def view_event_schedule():
+    connection = get_database_connection()
+
+    try:
+        cursor = connection.cursor() 
+        cursor.execute("""
+            SELECT S.SCHEDULE_ID, E.EVENT_NAME, S.START_DATE, S.END_DATE
+            FROM SCHEDULE S
+            JOIN EVENT E ON S.EVENT_ID = E.EVENT_ID
+            ORDER BY S.START_DATE;
+        """)
+
+        rows = cursor.fetchall()
+
+        if rows:
+            print(f"\n{'Schedule ID': <15} {'Event': <20} {'Start Date': <15} {'End Date': <15}")
+            print("-" * 70)
+            for row in rows:
+                print(f"{row[0]:<15} {row[1]:<20} {row[2]:<15} {row[3]:<15}")
+        else:
+            print("No schedule data found.")
+
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        connection.close()
+
 def view_attendees():
     connection = get_database_connection()
 
@@ -277,6 +300,7 @@ def view_attendees():
             print(f"Error retrieving attendees: {e}")
     finally:
         connection.close()
+        
 def attendee_role():
     while True:
         print("Welcome Attendee")
@@ -294,35 +318,93 @@ def attendee_role():
                 print("\nEnter your information....")
                 register()
             if choice == "2":
-                cursor.execute("""
-                    SELECT S.SCHEDULE_ID, E.EVENT_NAME, S.START_DATE, S.END_DATE
-                    FROM SCHEDULE S
-                    JOIN EVENT E ON S.EVENT_ID = E.EVENT_ID
-                    ORDER BY S.START_DATE;   
-                """)
-                rows = cursor.fetchall()
-                if rows:
-                    print(f"\n{'Schedule ID': <15} {'Event': 20} {'Start Date':<15} {'End Date':<15}")
-                    print("-" * 70)
-                    for row in rows:
-                        print(f"{row[0]:<15} {row[1]:<20} {row[2]:<15} {row[3]:<15}")
-                else:
-                    print("No schedule data found.")
+                view_event_schedule()
             elif choice == "3":
-                print("\nRetrieving weather condition...")
-                cursor.execute("SELECT * FROM WEATHER_CONDITION;")
-                rows = cursor.fetchall()
-                if rows:
-                    print(f"\n{'Condition ID': <15} {row[1]:30}")
-                    print("-" * 50)
-                    for row in rows:
-                        print(f"{rows[0]:<15} {row[1]:<30}")
-                else:
-                    print("No weather condition data found.")
+                view_weather_condition()
             elif choice == '4':
                 break
         finally:
             connection.close()
+
+def view_weather_condition():
+    connection = get_database_connection()
+
+    try:
+        cursor = connection.cursor() 
+
+        cursor.execute("""
+            SELECT E.EVENT_NAME, WC.TEMPERATURE, WC.WIND_SPEED
+            FROM WEATHER_CONDITION WC
+            JOIN EVENT E ON WC.EVENT_ID = E.EVENT_ID
+            ORDER BY E.EVENT_NAME;
+        """)
+        
+        rows = cursor.fetchall()
+
+        if rows:
+            print(f"\n{'Weather Condition': <20} {'Temperature': <20} {'Wind_speed': <15}")
+            print("-" * 30)
+            for row in rows:
+                print(f"{row[0]:<20} {row[1]:<20} {row[2]:<15}")
+        else:
+            print("No weather conditions data found.")
+
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        connection.close()
+
+def get_staff_for_events():
+    connection = get_database_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT E.EVENT_NAME, 
+                   ST.NAME AS STAFF_NAME, 
+                   ST.ROLE
+            FROM STAFF ST
+            JOIN EVENT E ON ST.EVENT_ID = E.EVENT_ID
+            ORDER BY E.EVENT_NAME, ST.ROLE;
+        """)
+
+        staff_data = cursor.fetchall()
+
+        for staff in staff_data:
+            print(f"Event: {staff[0]}, Staff: {staff[1]}, Role: {staff[2]}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        connection.close()
+
+def get_supplies_for_events():
+    connection = get_database_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT E.EVENT_NAME, 
+                   V.NAME AS VENDOR_NAME, 
+                   S.SUPPLY_NAME, 
+                   S.QUANTITY
+            FROM EVENT E
+            JOIN SUPPLIES S ON E.EVENT_ID = S.EVENT_ID
+            JOIN VENDOR V ON S.VENDOR_ID = V.VENDOR_ID
+            ORDER BY E.EVENT_NAME, V.NAME;
+        """)
+
+        supplies_data = cursor.fetchall()
+
+        for supply in supplies_data:
+            print(f"Event: {supply[0]}, Vendor: {supply[1]}, Supply: {supply[2]}, Quantity: {supply[3]}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        connection.close()
 
 def staff_role():
     while True:
@@ -331,6 +413,9 @@ def staff_role():
         print("2. Manage attendees")
         print("3. View weather conditions")
         print("4. View data based on Event Selected")
+        print("5. View Event Schedule")
+        print("6. Staff and Their Roles for Each Event")
+        print("7. Find Events That Have Vendors and Their Supplies")
         print("10. Exit to main")
         choice = input("Enter your option: ")
     
@@ -365,18 +450,15 @@ def staff_role():
                 if choice == "3":
                     break
             if choice == "3":
-                print("\nRetrieving weather condition...")
-                cursor.execute("SELECT * FROM WEATHER_CONDITION;")
-                rows = cursor.fetchall()
-                if rows:
-                    print(f"\n{'Condition ID': <15} {row[1]:30}")
-                    print("-" * 50)
-                    for row in rows:
-                        print(f"{rows[0]:<15} {row[1]:s<30}")
-                else:
-                    print("No weather condition data found.")
+                view_weather_condition()
             if choice == "4":
                 retrieve()
+            if choice == "5":
+                view_event_schedule()
+            if choice == "6":
+                get_staff_for_events()
+            if choice == "7":
+                get_supplies_for_events()
             elif choice == "10":
                 break
         finally:
